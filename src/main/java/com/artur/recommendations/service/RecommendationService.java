@@ -4,7 +4,7 @@ import com.artur.common.entity.VideoEntity;
 import com.artur.common.exception.NotFoundException;
 import com.artur.common.repository.LikeRepository;
 import com.artur.common.repository.UserRepository;
-import com.artur.common.repository.VideoRepository;
+import com.artur.recommendations.repository.RecommendationsRepository;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -27,7 +27,7 @@ public class RecommendationService {
     @Autowired
     UserRepository userRepository;
     @Autowired
-    VideoRepository videoRepository;
+    RecommendationsRepository recommendationsRepository;
     @Value("${application.max-videos-per-request:15}")
     Integer maxVideosPerRequest;
     @Value("${application.popularity-days:3}")
@@ -91,7 +91,7 @@ public class RecommendationService {
         }
         if(videos.size() < RECS_SIZE){
             logger.warn("Finding just random videos: " + userId);
-            videos.addAll(videoRepository.findByIdNotIn(
+            videos.addAll(recommendationsRepository.findByIdNotIn(
                     videos.isEmpty() ? Set.of(-1L) : videos.stream().map(VideoEntity::getId).collect(Collectors.toSet()),
                     PageRequest.of( page,RECS_SIZE - videos.size())));
         }
@@ -108,7 +108,7 @@ public class RecommendationService {
      * @return List of found recommendations
      */
     private List<VideoEntity> getByCategoriesAndLanguages(String userId, int page, int size){
-        return videoRepository.findRecommendationsForUser(userId,
+        return recommendationsRepository.findRecommendationsForUser(userId,
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 PageRequest.of(page, size));
     }
@@ -143,7 +143,7 @@ public class RecommendationService {
      * @return List of found recommendations
      */
     private List<VideoEntity> getSome(String language, Set<Long> exceptions, int page, int size){
-        return videoRepository.findMostPopularVideos(
+        return recommendationsRepository.findMostPopularVideos(
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 language,
                 exceptions,
@@ -157,7 +157,7 @@ public class RecommendationService {
      * @return List of found recommendations
      */
     private List<VideoEntity> getSomePopularVideos(Set<Long> exceptions, int page, int size){
-        return videoRepository.findMostPopularVideos(
+        return recommendationsRepository.findMostPopularVideos(
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 exceptions,
                 PageRequest.of(page, size)
