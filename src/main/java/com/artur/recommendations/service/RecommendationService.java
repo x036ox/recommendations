@@ -67,37 +67,39 @@ public class RecommendationService {
             @NotEmpty String[] browserLanguages,
             @NotNull Integer size) throws NotFoundException {
         final int RECS_SIZE = Math.min(size, maxVideosPerRequest);
-        List <VideoEntity> videos = new ArrayList<>();
+        Set<Long> ids = new HashSet<>();
         if(userId != null){
             if(!userRepository.existsById(userId))
                 throw new NotFoundException("User with specified id [" + userId + "] was not found");
-            videos.addAll(getByCategoriesAndLanguages(userId, page, RECS_SIZE));
+            ids.addAll(getRecommendationsForUser(userId, page, RECS_SIZE));
         }
 
-        if(videos.size() < RECS_SIZE){
+        if(ids.size() < RECS_SIZE){
             //finding with browser language
-            videos.addAll(getByLanguages(
-                    videos.isEmpty() ? Set.of(-1L) : videos.stream().map(VideoEntity::getId).collect(Collectors.toSet()),
+            ids.addAll(getByLanguages(
+                    ids.isEmpty() ? Set.of(-1L) : ids,
                     page,
-                    browserLanguages, RECS_SIZE - videos.size()));
+                    browserLanguages, RECS_SIZE - ids.size()));
         }
-        //finding random popular videos
-        if(videos.size() < RECS_SIZE){
+        //finding random popular ids
+        if(ids.size() < RECS_SIZE){
             logger.warn("Recommendation not found with user and browser languages for user: " + userId);
-            videos.addAll(getSomePopularVideos(
-                    videos.isEmpty() ? Set.of(-1L) : videos.stream().map(VideoEntity::getId).collect(Collectors.toSet()),
+            ids.addAll(getSomePopularVideos(
+                    ids.isEmpty() ? Set.of(-1L) : ids,
                     page,
-                    RECS_SIZE - videos.size()));
+                    RECS_SIZE - ids.size()));
         }
-        if(videos.size() < RECS_SIZE){
-            logger.warn("Finding just random videos: " + userId);
-            videos.addAll(recommendationsRepository.findByIdNotIn(
-                    videos.isEmpty() ? Set.of(-1L) : videos.stream().map(VideoEntity::getId).collect(Collectors.toSet()),
-                    PageRequest.of( page,RECS_SIZE - videos.size())));
+        if(ids.size() < RECS_SIZE){
+            logger.warn("Finding just random ids: " + userId);
+            ids.addAll(recommendationsRepository.findByIdNotIn(
+                    ids.isEmpty() ? Set.of(-1L) : ids,
+                    PageRequest.of( page,RECS_SIZE - ids.size())
+                    )
+                    .stream().map(VideoEntity::getId).collect(Collectors.toSet()));
         }
-        List<Long> ids = videos.stream().map(VideoEntity::getId).collect(Collectors.toCollection(ArrayList::new));
-        Collections.shuffle(ids);
-        return ids.stream().limit(RECS_SIZE).toList();
+        var result = new ArrayList<>(ids);
+        Collections.shuffle(result);
+        return result;
     }
 
 
@@ -105,9 +107,9 @@ public class RecommendationService {
      * The most popular videos will be selected by likes which date is in range from {@code Instant.now().minus(AppConstants.POPULARITY_DAYS)}
      * @param userId user id for which recommendations should be found
      * @param size size of recommendations result
-     * @return List of found recommendations
+     * @return Ids of found recommendations
      */
-    private List<VideoEntity> getByCategoriesAndLanguages(String userId, int page, int size){
+    private List<Long> getRecommendationsForUser(String userId, int page, int size){
         return recommendationsRepository.findRecommendationsForUser(userId,
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 PageRequest.of(page, size));
@@ -120,10 +122,10 @@ public class RecommendationService {
      * @param exceptions videos ids that should be excluded. Can be null or empty.
      * @param languages languages, for example {"ru", "en"}. Can not be null and empty
      * @param size size of recommendations result
-     * @return List of found recommendations
+     * @return Ids of found recommendations
      */
-    private List<VideoEntity> getByLanguages(Set<Long> exceptions, int page, String[] languages, int size){
-        List<VideoEntity> result = new ArrayList<>(size);
+    private List<Long> getByLanguages(Set<Long> exceptions, int page, String[] languages, int size){
+        List<Long> result = new ArrayList<>(size);
         for (String language:languages) {
               result.addAll(getSome(
                       language,
@@ -140,9 +142,9 @@ public class RecommendationService {
      * @param language language
      * @param exceptions videos ids that should be excluded. Can be null or empty.
      * @param size size of recommendations result
-     * @return List of found recommendations
+     * @return Ids of found recommendations
      */
-    private List<VideoEntity> getSome(String language, Set<Long> exceptions, int page, int size){
+    private List<Long> getSome(String language, Set<Long> exceptions, int page, int size){
         return recommendationsRepository.findMostPopularVideos(
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 language,
@@ -154,9 +156,9 @@ public class RecommendationService {
      * likes which date is in range from {@code Instant.now().minus(AppConstants.POPULARITY_DAYS)}.
      * @param exceptions videos ids that should be excluded. Can be null or empty.
      * @param size size of recommendations result
-     * @return List of found recommendations
+     * @return Ids of found recommendations
      */
-    private List<VideoEntity> getSomePopularVideos(Set<Long> exceptions, int page, int size){
+    private List<Long> getSomePopularVideos(Set<Long> exceptions, int page, int size){
         return recommendationsRepository.findMostPopularVideos(
                 Instant.now().minus(popularityDays, ChronoUnit.DAYS),
                 exceptions,

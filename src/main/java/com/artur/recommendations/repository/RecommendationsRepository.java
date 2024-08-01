@@ -18,15 +18,15 @@ public interface RecommendationsRepository extends VideoRepository {
 
 
 
-    @Query("SELECT v FROM VideoEntity v JOIN likes l JOIN videoMetadata m WHERE (v.id NOT IN :exceptions) AND l.timestamp >= :timestamp AND m.language = :language  GROUP BY v.id ORDER BY COUNT(v.id) DESC")
-    List<VideoEntity> findMostPopularVideos(
+    @Query("SELECT v.id FROM VideoEntity v JOIN likes l JOIN videoMetadata m WHERE (v.id NOT IN :exceptions) AND l.timestamp >= :timestamp AND m.language = :language  GROUP BY v.id ORDER BY COUNT(v.id) DESC")
+    List<Long> findMostPopularVideos(
             @Param("timestamp")Instant timestamp,
             @Param("language") String language,
             @Param("exceptions") Set<Long> exceptions,
             Pageable pageable);
 
-    @Query("SELECT v FROM VideoEntity v JOIN likes l JOIN videoMetadata m WHERE (v.id NOT IN :exceptions) AND l.timestamp >= :timestamp GROUP BY v.id ORDER BY COUNT(v.id) DESC")
-    List<VideoEntity> findMostPopularVideos(
+    @Query("SELECT v.id FROM VideoEntity v JOIN likes l JOIN videoMetadata m WHERE (v.id NOT IN :exceptions) AND l.timestamp >= :timestamp GROUP BY v.id ORDER BY COUNT(v.id) DESC")
+    List<Long> findMostPopularVideos(
             @Param("timestamp")Instant timestamp,
             @Param("exceptions") Set<Long> exceptions,
             Pageable pageable);
@@ -35,7 +35,7 @@ public interface RecommendationsRepository extends VideoRepository {
 
     /**Gets recommendations for user just in one SQL request. Videos will be selected by user`s most common languages
      * and categories. The result videos will be ordered firstly by languages then by categories in reverse and
-     * by amount of likes. This guarantees to get most popular videos with languages that user likes and categories
+     * by amount of likes. This guarantees to get most popular videos with languages user prefers and categories
      * that user are interested in.
      * @param userId user id for which should be recommendations found. Can not be null.
      * @param timestamp the range from {@code Instant.now()} in which video is considered popular. Can not be null
@@ -43,19 +43,17 @@ public interface RecommendationsRepository extends VideoRepository {
      * @return List of founded recommendations
      */
     @Query("""
-            SELECT v FROM VideoEntity v
+            SELECT v.id FROM VideoEntity v
             JOIN videoMetadata vm
             JOIN likes l
-            LEFT OUTER JOIN UserMetadata um ON um.id = :userId""" +
-//            -- WHERE (v.id NOT IN :exceptions)
-            """
+            LEFT OUTER JOIN UserMetadata um ON um.id = :userId
             WHERE l.timestamp > :timestamp
             AND vm.category = KEY(um.categories) AND vm.language = KEY(um.languages)
             GROUP BY v.id
             ORDER BY VALUE(um.languages) DESC, VALUE(um.categories) DESC, COUNT(*) DESC
             """
     )
-    List<VideoEntity> findRecommendationsForUser(
+    List<Long> findRecommendationsForUser(
             @Param("userId") String userId,
             @Param("timestamp") Instant timestamp,
             Pageable size);
