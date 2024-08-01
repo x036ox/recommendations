@@ -66,6 +66,7 @@ public class RecommendationService {
             @NotNull Integer page,
             @NotEmpty String[] browserLanguages,
             @NotNull Integer size) throws NotFoundException {
+        long start = System.currentTimeMillis();
         final int RECS_SIZE = Math.min(size, maxVideosPerRequest);
         Set<Long> ids = new HashSet<>();
         if(userId != null){
@@ -99,6 +100,7 @@ public class RecommendationService {
         }
         var result = new ArrayList<>(ids);
         Collections.shuffle(result);
+        logger.trace("Recommendations found in " + (System.currentTimeMillis() - start) + "ms");
         return result;
     }
 
